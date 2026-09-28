@@ -1,0 +1,523 @@
+package io.github.codex.zeehospeed;
+
+import android.app.Activity;
+import android.content.Context;
+import android.content.ContextWrapper;
+import android.os.Looper;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
+
+import java.lang.ref.WeakReference;
+import java.util.Collections;
+import java.util.Locale;
+import java.util.Set;
+import java.util.WeakHashMap;
+
+import de.robv.android.xposed.IXposedHookLoadPackage;
+import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
+
+public final class MainHook implements IXposedHookLoadPackage {
+    private static final String TARGET_PACKAGE = "com.cfmoto";
+
+    private static final String HISTORY_ACTIVITY =
+            "com.cfmoto.ui.moto.HistoryTravelActivity";
+    private static final String DETAIL_ACTIVITY =
+            "com.cfmoto.ui.moto.TravelDetailActivity";
+    private static final String MY_RIDE_ACTIVITY =
+            "com.cfmoto.ui.moto.myrideinfo.MyRideInfoActivity";
+    private static final String ANALYSE_ACTIVITY =
+            "com.cfmoto.ui.moto.DriveAnalyseActivity";
+    private static final String ANALYSE_HINT = "analyse";
+
+    private static final String CONTROL_ACTIVITY =
+            "com.cfmoto.ui.moto.controlplatform.ControlPlatformActivity";
+    private static final String CONTROL_HINT = "controlplatform";
+
+    private static final Set<TextView> LOGGED_TEXT =
+            Collections.newSetFromMap(new WeakHashMap<TextView, Boolean>());
+    private static WeakReference<Activity> currentRideActivity = new WeakReference<>(null);
+    private static WeakReference<Activity> currentAnalyseActivity = new WeakReference<>(null);
+    private static WeakReference<Activity> currentControlActivity = new WeakReference<>(null);
+
+    @Override
+    public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) {
+        if (!TARGET_PACKAGE.equals(lpparam.packageName)) {
+            return;
+        }
+
+        try {
+            hookActivityLifecycle();
+            hookVisibility();
+            hookAttachedViews();
+            hookSpeedTextLogging();
+            XposedBridge.log("[ZeehoSpeed] ride-record hooks installed");
+        } catch (Throwable t) {
+            XposedBridge.log("[ZeehoSpeed] install failed: " + t);
+        }
+    }
+
+    private static void hookActivityLifecycle() {
+        XposedHelpers.findAndHookMethod(Activity.class, "onResume", new XC_MethodHook() {
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) {
+                Activity activity = (Activity) param.thisObject;
+                String cls = activity.getClass().getName();
+                if (!cls.startsWith("com.cfmoto.")) return;
+
+                View root = activity.getWindow() == null
+                        ? null : activity.getWindow().getDecorView();
+                if (root == null) return;
+
+                boolean isAnalyse = isAnalyseActivity(activity);
+                boolean isRideRecord = isRideRecordActivity(activity);
+                boolean isControl = isControlActivity(activity);
+
+                if (isAnalyse) currentAnalyseActivity = new WeakReference<>(activity);
+                if (isRideRecord) currentRideActivity = new WeakReference<>(activity);
+                if (isControl) currentControlActivity = new WeakReference<>(activity);
+
+                if (!isAnalyse && !isRideRecord && !isControl) return;
+
+                for (int delay = 0; delay <= 12000; delay += 500) {
+                    final View capturedRoot = root;
+                    final Activity act = activity;
+                    final boolean analyse = isAnalyse;
+                    final boolean control = isControl;
+                    if (delay == 0 && Looper.myLooper() == Looper.getMainLooper()) {
+                        scanTree(act, capturedRoot, analyse, control);
+                    } else {
+                        root.postDelayed(() -> scanTree(act, capturedRoot, analyse, control), delay);
+                    }
+                }
+            }
+        });
+    }
+
+    private static void scanTree(Activity activity, View view, boolean isAnalyse, boolean isControl) {
+        if (view == null) return;
+        if (activity == null || activity.isFinishing()) return;
+
+        // 孪生仪表页
+        if (isControl) {
+            // 诊断打印
+            if (view instanceof TextView) {
+                TextView tv = (TextView) view;
+                CharSequence text = tv.getText();
+                XposedBridge.log("[ZeehoControl] id=" + resourceName(tv)
+                        + " | text=" + (text == null ? "null" : text.toString())
+                        + " | vis=" + tv.getVisibility()
+                        + " | alpha=" + tv.getAlpha());
+            }
+
+            // 隐藏"不支持"提示
+            if (isUnsupportedHint(view)) {
+                view.setVisibility(View.GONE);
+            }
+            // 恢复仪表 View
+            if (isDashboardView(view)) {
+                revealView(view);
+            }
+        } else if (isAnalyse) {
+            if (isAnalyseMetricView(view)) {
+                revealView(view);
+            }
+        } else {
+            if (isSpeedView(view) || isRideAnalysisEntryView(view)) {
+                revealView(view);
+            }
+            if (isDetailActivity(activity) && isRecordContainer(view)
+                    && hasMeaningfulRecordValue(activity.getWindow().getDecorView())) {
+                view.setVisibility(View.VISIBLE);
+            }
+        }
+
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                scanTree(activity, group.getChildAt(i), isAnalyse, isControl);
+            }
+        }
+    }
+
+    private static void hookVisibility() {
+        XposedHelpers.findAndHookMethod(View.class, "setVisibility", int.class,
+                new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        View view = (View) param.thisObject;
+                        int target = (Integer) param.args[0];
+
+                        // 入口按钮：任何页面都恢复
+                        if (isRideAnalysisEntryView(view)) {
+                            param.args[0] = View.VISIBLE;
+                            return;
+                        }
+
+                        // 孪生仪表页：隐藏"不支持"提示，恢复仪表 View
+                        if (isInControlActivity(view)) {
+                            if (isUnsupportedHint(view)) {
+                                param.args[0] = View.GONE;
+                                return;
+                            }
+                            if (isDashboardView(view) && target != View.VISIBLE) {
+                                param.args[0] = View.VISIBLE;
+                                return;
+                            }
+                        }
+
+                        // 分析页
+                        if (isInAnalyseActivity(view) && isAnalyseMetricView(view)) {
+                            if (target != View.VISIBLE) param.args[0] = View.VISIBLE;
+                            return;
+                        }
+
+                        // 其他骑行页
+                        if (target != View.VISIBLE && isSpeedView(view)) {
+                            param.args[0] = View.VISIBLE;
+                        }
+                    }
+                });
+    }
+
+    private static void hookAttachedViews() {
+        XposedHelpers.findAndHookMethod(View.class, "onAttachedToWindow",
+                new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        View view = (View) param.thisObject;
+
+                        if (isRideAnalysisEntryView(view)) {
+                            view.post(() -> revealView(view));
+                            return;
+                        }
+                        if (isInControlActivity(view)) {
+                            if (isUnsupportedHint(view)) {
+                                view.post(() -> view.setVisibility(View.GONE));
+                            } else if (isDashboardView(view)) {
+                                view.post(() -> revealView(view));
+                            }
+                            return;
+                        }
+                        if (isInAnalyseActivity(view) && isAnalyseMetricView(view)) {
+                            view.post(() -> revealView(view));
+                            return;
+                        }
+                        if (isSpeedView(view)) {
+                            view.post(() -> revealView(view));
+                        }
+                    }
+                });
+    }
+
+    private static void hookSpeedTextLogging() {
+        XposedHelpers.findAndHookMethod(TextView.class, "setText",
+                CharSequence.class, TextView.BufferType.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        TextView view = (TextView) param.thisObject;
+
+                        if (isRideAnalysisEntryView(view)) {
+                            revealView(view);
+                            return;
+                        }
+                        if (isInControlActivity(view)) {
+                            if (isUnsupportedHint(view)) {
+                                view.setVisibility(View.GONE);
+                            } else if (isDashboardView(view)) {
+                                revealView(view);
+                            }
+                            return;
+                        }
+                        if (isInAnalyseActivity(view) && isAnalyseMetricView(view)) {
+                            revealView(view);
+                            return;
+                        }
+                        if (!isSpeedView(view)) return;
+
+                        revealView(view);
+                        CharSequence text = view.getText();
+                        if (text != null && text.length() > 0) {
+                            synchronized (LOGGED_TEXT) {
+                                if (LOGGED_TEXT.add(view)) {
+                                    XposedBridge.log("[ZeehoSpeed] " + resourceName(view)
+                                            + " = " + text);
+                                }
+                            }
+                        }
+                    }
+                });
+    }
+
+    // ==================== 孪生仪表判断 ====================
+
+    /**
+     * 判断 View 是不是"当前车辆不支持孪生仪表"的提示。
+     */
+    private static boolean isUnsupportedHint(View view) {
+        if (!(view instanceof TextView)) {
+            // 也检查 ViewGroup 是否有子 TextView 显示"不支持"
+            if (view instanceof ViewGroup) {
+                ViewGroup group = (ViewGroup) view;
+                for (int i = 0; i < group.getChildCount(); i++) {
+                    View child = group.getChildAt(i);
+                    if (child instanceof TextView) {
+                        CharSequence text = ((TextView) child).getText();
+                        if (text != null && containsUnsupported(text.toString())) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+        CharSequence text = ((TextView) view).getText();
+        return text != null && containsUnsupported(text.toString());
+    }
+
+    private static boolean containsUnsupported(String s) {
+        if (s == null) return false;
+        String lower = s.toLowerCase(Locale.ROOT);
+        return lower.contains("不支持孪生")
+                || lower.contains("不支持")
+                || lower.contains("孪生仪表")
+                || lower.contains("暂不支持")
+                || lower.contains("此车型")
+                || lower.contains("当前车辆");
+    }
+
+    /**
+     * 判断 View 是不是仪表的核心控件（车速、电量、里程、换档）。
+     */
+    private static boolean isDashboardView(View view) {
+        if (view == null) return false;
+        String name = resourceName(view);
+        if (name == null) return false;
+
+        String lower = name.toLowerCase(Locale.ROOT);
+        return lower.contains("speed")
+                || lower.contains("battery")
+                || lower.contains("soc")
+                || lower.contains("power")
+                || lower.contains("gear")
+                || lower.contains("mileage")
+                || lower.contains("range")
+                || lower.contains("odo")
+                || lower.contains("voltage")
+                || lower.contains("current")
+                || lower.contains("temp")
+                || lower.contains("percent")
+                || lower.contains("dashboard")
+                || lower.contains("instrument")
+                || lower.contains("cluster")
+                || lower.contains("panel");
+    }
+
+    private static boolean isInControlActivity(View view) {
+        Activity activity = findActivity(view.getContext());
+        if (activity == null) activity = currentControlActivity.get();
+        return isControlActivity(activity);
+    }
+
+    private static boolean isControlActivity(Activity activity) {
+        if (activity == null) return false;
+        String cls = activity.getClass().getName();
+        return cls.equals(CONTROL_ACTIVITY)
+                || cls.toLowerCase(Locale.ROOT).contains(CONTROL_HINT);
+    }
+
+    // ==================== 原有判断 ====================
+
+    private static boolean isSpeedView(View view) {
+        Activity activity = findActivity(view.getContext());
+        if (activity == null) activity = currentRideActivity.get();
+        if (activity == null) return false;
+
+        if (isAnalyseActivity(activity)) return isAnalyseMetricView(view);
+        if (!isRideRecordActivity(activity)) return false;
+
+        String name = resourceName(view);
+        if (name != null && isRideMetricName(name)) {
+            return !isHistoryActivity(activity) || name.contains("speed");
+        }
+        return !isHistoryActivity(activity) && hasMetricLabelSibling(view);
+    }
+
+    private static boolean isAnalyseMetricView(View view) {
+        if (view == null) return false;
+        String name = resourceName(view);
+        if (name == null) return false;
+
+        String lower = name.toLowerCase(Locale.ROOT);
+        return lower.contains("speed")
+                || lower.contains("acceler")
+                || lower.contains("deceler")
+                || lower.contains("brake")
+                || lower.contains("bending")
+                || lower.contains("bend")
+                || lower.contains("lean")
+                || lower.contains("corner")
+                || lower.contains("curve")
+                || lower.contains("turning")
+                || lower.contains("extreme")
+                || lower.contains("night")
+                || lower.contains("long_drive")
+                || lower.contains("longdrive")
+                || lower.contains("off_light")
+                || lower.contains("offlight")
+                || lower.contains("off_turn")
+                || lower.contains("ride_mileage")
+                || lower.contains("riding_time")
+                || lower.contains("jia_su")
+                || lower.contains("jian_su")
+                || lower.contains("wan_dao")
+                || lower.contains("ya_wan");
+    }
+
+    private static boolean isRideAnalysisEntryView(View view) {
+        if ("ll_rid_analysis".equals(resourceName(view))) return true;
+        if (view instanceof TextView) {
+            CharSequence text = ((TextView) view).getText();
+            if (text != null) {
+                String label = text.toString().trim();
+                return "骑行分析".equals(label) || "rid_analysis".equalsIgnoreCase(label);
+            }
+        }
+        return false;
+    }
+
+    private static boolean isRideMetricName(String name) {
+        String value = name.toLowerCase(Locale.ROOT);
+        return value.contains("speed") || value.contains("acceler")
+                || value.contains("deceler") || value.contains("brake")
+                || value.contains("bending") || value.contains("corner")
+                || value.contains("curve") || value.contains("lean")
+                || value.contains("bend") || value.contains("turning")
+                || value.contains("jia_su") || value.contains("jian_su")
+                || value.contains("wan_dao") || value.contains("ya_wan")
+                || value.contains("max_speed") || value.contains("brakes_times");
+    }
+
+    private static boolean hasMetricLabelSibling(View view) {
+        if (!(view.getParent() instanceof ViewGroup)) return false;
+        ViewGroup parent = (ViewGroup) view.getParent();
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            View sibling = parent.getChildAt(i);
+            if (sibling == view || !(sibling instanceof TextView)) continue;
+            CharSequence text = ((TextView) sibling).getText();
+            if (text == null) continue;
+            String label = text.toString().toLowerCase(Locale.ROOT);
+            if (label.contains("极速") || label.contains("最高速度")
+                    || label.contains("最大速度") || label.contains("急加速")
+                    || label.contains("急减速") || label.contains("急刹")
+                    || label.contains("压弯") || label.contains("弯道")
+                    || label.contains("加速") || label.contains("减速")
+                    || label.contains("刹车") || label.contains("制动")
+                    || label.contains("加速度") || label.contains("减速度")
+                    || label.contains("acceleration") || label.contains("deceleration")
+                    || label.contains("brake") || label.contains("bending")
+                    || label.contains("corner") || label.contains("lean")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isInAnalyseActivity(View view) {
+        Activity activity = findActivity(view.getContext());
+        if (activity == null) activity = currentAnalyseActivity.get();
+        return isAnalyseActivity(activity);
+    }
+
+    private static boolean isAnalyseActivity(Activity activity) {
+        if (activity == null) return false;
+        String cls = activity.getClass().getName();
+        return cls.equals(ANALYSE_ACTIVITY)
+                || cls.toLowerCase(Locale.ROOT).contains(ANALYSE_HINT);
+    }
+
+    private static boolean isRideRecordActivity(Activity activity) {
+        return isHistoryActivity(activity) || isDetailActivity(activity)
+                || isMyRideActivity(activity);
+    }
+
+    private static boolean isHistoryActivity(Activity activity) {
+        return activity != null && HISTORY_ACTIVITY.equals(activity.getClass().getName());
+    }
+
+    private static boolean isDetailActivity(Activity activity) {
+        return activity != null && DETAIL_ACTIVITY.equals(activity.getClass().getName());
+    }
+
+    private static boolean isMyRideActivity(Activity activity) {
+        return activity != null && MY_RIDE_ACTIVITY.equals(activity.getClass().getName());
+    }
+
+    private static boolean isRecordContainer(View view) {
+        String name = resourceName(view);
+        return "cl_ride_info".equals(name) || "group_rideinfo".equals(name);
+    }
+
+    private static boolean hasMeaningfulRecordValue(View root) {
+        if (root == null) return false;
+        if (root instanceof TextView) {
+            CharSequence text = ((TextView) root).getText();
+            if (text != null && isMeaningful(text.toString())) {
+                String name = resourceName(root);
+                if ("tv_all_km".equals(name) || "tv_hour".equals(name)
+                        || "tv_min".equals(name) || "tv_speed".equals(name)
+                        || "tv_speed_playing".equals(name)
+                        || "tv_travel_speed".equals(name)) {
+                    return true;
+                }
+            }
+        }
+        if (root instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) root;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                if (hasMeaningfulRecordValue(group.getChildAt(i))) return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isMeaningful(String text) {
+        String value = text.trim();
+        return !value.isEmpty() && !"--".equals(value) && !"无数据".equals(value);
+    }
+
+    private static void revealView(View view) {
+        if (view.getVisibility() != View.VISIBLE) {
+            view.setVisibility(View.VISIBLE);
+        }
+        View current = view.getParent() instanceof View ? (View) view.getParent() : null;
+        while (current != null && current.getVisibility() != View.VISIBLE) {
+            current.setVisibility(View.VISIBLE);
+            current = current.getParent() instanceof View ? (View) current.getParent() : null;
+        }
+    }
+
+    private static Activity findActivity(Context context) {
+        Context current = context;
+        while (current instanceof ContextWrapper) {
+            if (current instanceof Activity) return (Activity) current;
+            Context base = ((ContextWrapper) current).getBaseContext();
+            if (base == current) break;
+            current = base;
+        }
+        return current instanceof Activity ? (Activity) current : null;
+    }
+
+    private static String resourceName(View view) {
+        int id = view.getId();
+        if (id == View.NO_ID) return null;
+        try {
+            return view.getResources().getResourceEntryName(id);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+}

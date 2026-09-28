@@ -1,0 +1,17 @@
+# ---- 构建产物 ----
+.gradle/
+build/
+**/build/
+outputs/
+work/
+
+# ---- IDE ----
+.idea/
+*.iml
+
+# ---- 本机环境（含 SDK 路径，不要提交）----
+local.properties
+
+# ---- 系统 / 日志杂物 ----
+.DS_Store
+*.log

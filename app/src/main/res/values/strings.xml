@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 应用名：LSPosed 管理器列表 / 系统设置里显示 -->
+    <string name="app_name">ZEEHO Speed Hunter</string>
+
+    <!-- Xposed 模块描述：LSPosed 管理器里显示（对应 Manifest 的 xposeddescription） -->
+    <string name="xposed_description">解锁 ZEEHO 骑行记录完整数据。</string>
+</resources>
