@@ -39,6 +39,7 @@ gradle.properties
 # 系统 / 编辑器杂物
 .DS_Store
 Thumbs.db
+.gitignore
 
 # ================= 日志 / 临时 / 缓存 =================
 *.log
