@@ -1,17 +1,28 @@
-# ---- 构建产物 ----
-.gradle/
+# ================= 构建产物 =================
 build/
+.gradle/
 **/build/
 outputs/
 work/
+*.apk
+*.aab
 
-# ---- IDE ----
+# ================= 密钥与本机配置（绝不进仓库）=================
+# 签名口令放本地 signing.properties；密钥库与签名产物同样不入库
+signing.properties
+release/*.jks
+release/*.apk
+local.properties
+# 含机器相关的 org.gradle.java.home，不入库（口令已移除，仅本机用）
+gradle.properties
+
+# ================= 系统 / 编辑器杂物 =================
+.DS_Store
+Thumbs.db
+*.log
+__pycache__/
+*.pyc
 .idea/
 *.iml
-
-# ---- 本机环境（含 SDK 路径，不要提交）----
-local.properties
-
-# ---- 系统 / 日志杂物 ----
-.DS_Store
-*.log
+.vscode/
+*.swp

@@ -25,7 +25,7 @@
 
 set -uo pipefail
 
-MODULE_PKG="${MODULE_PKG:-io.github.codex.zeehospeed}"
+MODULE_PKG="${MODULE_PKG:-com.github.zeehospeedhunter}"
 TARGET_PKG="${TARGET_PKG:-com.cfmoto}"
 TARGET_ACTIVITY="${TARGET_ACTIVITY:-com.cfmoto/.ui.login.SplashActivity}"
 OTA_ACTIVITY="${OTA_ACTIVITY:-com.cfmoto/com.cfmoto.ui.mine.ota.OTAUpgradeActivity}"

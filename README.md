@@ -2,16 +2,54 @@
 
 LSPosed 模块，作用于 ZEEHO App（`com.cfmoto`），实现如下功能：
 
-1. **恢复骑行记录里被隐藏的完整数据** —— 速度、极速、急加速/急减速、压弯等统计字段；
-2. **OTA 界面解锁 + 全链路流量记录** —— 用于研究车辆 OTA 链路的只读 hook。
+1. **恢复骑行记录里被隐藏的统计** —— 骑行分析入口、极速、急加速、急刹、压弯；
+2. **OTA 界面解锁 + 全链路流量记录** —— 用于研究车辆 OTA 链路的只读 hook；
+3. **自带 Material You 设置界面** —— 实时切换挂载方式与各 gate。
 
-## 骑行记录恢复
+## 骑行记录恢复（主机制：网络层能力位改写）
 
-针对 ZEEHO 3.0.5 开发，基于 2.6.11 与新版资源对比定位。模块不处理导航实时速度，也不读取或伪造 GPS 速度——只恢复 App 已经绑定但界面隐藏的值。
+隐藏判据是**服务端下发的车型能力位**（iOS 端 8 轮消融实验验证，见 `../docs/04-iOS消融实验-结果.md`），
+所以模块在网络层把这两个字段写对，App 自己就把 UI 渲染出来：
 
-已确认恢复的位置：「历史轨迹」列表里的骑行速度、轨迹详情中的统计速度与回放速度、「我的骑行 → 当日数据」中的最高速度；详情页与骑行分析页会尝试按资源名或同行标签恢复极速、急加速、急减速、压弯等统计。新增指标需在目标 App 版本上实机确认。
+| gate | 字段 | 原值 | 改成 | 控制 |
+|---|---|---|---|---|
+| G1 | `vehicleKinds` | `1` | `2` | 骑行分析入口 + 极速 |
+| G2 | `cyclingEventStatisticFlag` | `false` | `true` | 急加速 / 急刹 / 压弯 |
 
-不同车型、账号、地区和后续 App 版本的接口或页面可能不同，不能据此保证所有环境都能显示。
+- 实现：`app/src/main/java/com/github/zeehospeedhunter/net/`，hook okhttp `Response$Builder#build()`；
+- **不按 URL 过滤**，按「响应体里有没有这两个 key」判定，递归不限层级（列表响应里值为 `null` 也改写）；
+- **不改任何数据字段**，显示的数值是服务端真值；
+- **不改车型标识**（`vehicleType` / `vehType` / `regulationType`）—— 冗余，且会让 App 按别的车型发控制指令。
+
+旧方案（沿祖先链点亮被 GONE 的控件）保留为**兜底**，默认关闭：`ride/RideOptions#VIEW_FALLBACK`。
+只在网络层失效时打开（App 换了判定源时）。
+
+## Android 16 启动崩溃规避（MobGuard）
+
+在 Android 16（SDK 36，Nothing A024 / MetroidIND）上，ZEEHO App（v3.0.5）**一启动就 SIGSEGV 闪退**，
+与模块无关（禁用模块、关闭 MTE、放宽 hidden_api 策略都照样崩）。根因是 App 打包的
+**MobTech / ShareSDK（`com.mob.tools`）JNI 反射层**在新系统上的兼容性崩溃
+（`fault addr 0x0000200000000401`，栈帧 `com.mob.tools.a.c$c.a` / `com.mob.tools.a.c$a.a`）。
+
+模块提供一个**保命 hook** `core/MobGuard`：hook 这两个类的全部 `a` 方法并直接 `return null`，
+作为 `MainHook` 的**第一个 install 调用**（先于网络层 gate，确保 App 能先活下来）。
+
+- 默认开启，`core/MobOptions#GUARD`（`mob_guard` 开关，`core/Keys#KEY_MOB_GUARD`）可遥控关闭；
+- 只在 `com.cfmoto` 进程内生效；
+- 验证：装好带 MobGuard 的 v2.0 后，`logcat` 该进程 `has died` = **0**（此前每次启动必崩），
+  HookLog 打印 `mob guard hooked com.mob.tools.a.c$c (#a x7)` / `com.mob.tools.a.c$a (#a x10)`。
+
+> 这是针对 App 自身 SDK 缺陷的规避，不属于「恢复隐藏字段」的功能逻辑；若未来 App 升级替换掉
+> 有问题的 SDK，可把 `mob_guard` 关掉恢复原始行为。
+
+## 设置界面
+
+模块自带原生设置界面（`ui.MainActivity`，桌面图标或 LSPosed 里点开模块进入）：
+
+- 状态卡实时显示当前挂载方式（WEB / WEB+VIEW / VIEW / OFF）；
+- 开关：网络层改写（主）、G1、G2、视图层兜底；
+- 开关通过**广播 + 自落盘**跨进程送达运行中的 ZEEHO App，**实时生效**。
+  通道细节见 `../docs/02-Android网络层gate实现.md`。
 
 ## OTA 抓包 / 解锁
 
@@ -45,7 +83,12 @@ LOG=/sdcard/Android/data/com.cfmoto/files/zeeho_hook.log
 adb shell cat $LOG | grep ZeehoHTTP | sed 's/[?&].*//' | sort -u   # 去重后的接口清单
 adb shell cat $LOG | grep '★'                                      # 固件下载线索
 adb shell cat $LOG | grep 'body '                                   # 响应体
+
+./tools/net-gate-watch.sh                                           # G1/G2 OLD + patched 速查
+adb shell cat $LOG | grep ZeehoCfg                                  # 配置通道
 ```
+
+排查口诀：App 升级后失效 → 看 `G1/G2 OLD` 两行。**还在** = 判定值变了；**消失** = 换了判定源。
 
 ## 安装
 
@@ -58,13 +101,27 @@ adb shell cat $LOG | grep 'body '                                   # 响应体
 
 ## 从源码构建
 
-环境要求：JDK 17、Android SDK 34、Gradle 9.7.1（wrapper 自带）。
+包名 `com.github.zeehospeedhunter`，当前版本 **2.0**（versionCode 20）。
+环境要求：JDK 17、Android SDK 35、Gradle 9.7.1（wrapper 自带）。
 
 ```bash
 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 ./gradlew assembleRelease
-# 产物：app/build/outputs/apk/release/app-release.apk
+# 产物：release/zeeho-speedhunter-v2.0.apk（编完自动从 build 目录拷出）
 ```
+
+### 签名
+
+密钥库 `release/release.jks`（alias `speedhunter-fish`）。口令从 `gradle.properties`
+或环境变量读取（`STORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`）：
+
+```bash
+./gradlew assembleRelease \
+  -PSTORE_PASSWORD=xxx -PKEY_ALIAS=speedhunter-fish -PKEY_PASSWORD=xxx
+```
+
+三者不齐全时自动回退 debug 签名（本地随手可编）。
+`gradle.properties` 与 `release/*.jks`、`release/*.apk` 均已排除在 git 之外。
 
 ## 隐私与安全
 
