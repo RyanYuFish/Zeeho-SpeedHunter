@@ -9,8 +9,17 @@ import com.github.zeehospeedhunter.core.HookLog;
 import com.github.zeehospeedhunter.core.MobGuard;
 import com.github.zeehospeedhunter.core.Targets;
 import com.github.zeehospeedhunter.ble.BleHooks;
+import com.github.zeehospeedhunter.net.MqttHooks;
 import com.github.zeehospeedhunter.net.NetPatch;
+import com.github.zeehospeedhunter.ota.EcSdkConfigProbe;
+import com.github.zeehospeedhunter.ota.OtaChannelProbe;
 import com.github.zeehospeedhunter.ota.OtaHooks;
+import com.github.zeehospeedhunter.ota.OtaMdnsProbe;
+import com.github.zeehospeedhunter.ota.OtaMdnsRawProbe;
+import com.github.zeehospeedhunter.ota.OtaSocketProbe;
+import com.github.zeehospeedhunter.ota.OtaSocketTrace;
+import com.github.zeehospeedhunter.ota.PatchServer;
+import com.github.zeehospeedhunter.ride.RideFetch;
 import com.github.zeehospeedhunter.ride.RideHooks;
 
 /**
@@ -30,6 +39,10 @@ import com.github.zeehospeedhunter.ride.RideHooks;
  *   <li>{@link RideHooks} —— 视图层兜底（实时开关，默认关，见 {@code ride.RideOptions}）；</li>
  *   <li>{@link OtaHooks} —— OTA 界面解锁 + 全链路流量记录（只读，不伪造服务端数据）；</li>
  *   <li>{@link BleHooks} —— BLE 车控帧双向捕获。</li>
+ *   <li>{@link OtaChannelProbe} —— 车机 OTA 通道知识表 + 只读探针。2026-10-05 车边实测
+ *       确认：官方任务单是本模块注入伪造的，车机 TCP {@code 10950} 并不监听，
+ *       真实通道是 {@code /dev/cfmoto_cfcp}（CFCP，见 {@link com.github.zeehospeedhunter.ota.OtaChannels}）。
+ *       本探针只打印结论与探测类是否存在，<b>不下发任何指令</b>。</li>
  * </ul>
  *
  * <p>日志出口见 {@link HookLog} —— 这套 LSPosed 不把日志写进 logcat，所以要读文件。</p>
@@ -52,9 +65,20 @@ public final class MainHook implements IXposedHookLoadPackage {
                 + " " + HookLog.describeWriters() + " ==========");
 
         MobGuard.install(lpparam);   // 先保命：规避 MobTech SDK 的启动崩溃
-        NetPatch.installAll();       // 主机制：网络层能力位改写
+        RideFetch.installAll();      // 请求侧：把 ridetrack_v2 的 pageSize 放大到 200
+        NetPatch.installAll();       // 主机制：网络层能力位改写 + 急刹/压弯回填
+        MqttHooks.installAll();      // ★ MQTT broker/凭据/topic 捕获（只读）
         RideHooks.installAll();      // 视图层兜底（默认关）
         OtaHooks.installAll();
         BleHooks.installAll();
+        OtaChannelProbe.install();   // ★ 车机 OTA 通道知识表 + 只读探针（不下发任何指令）
+        OtaChannelProbe.selfTest();  // 校验和自测：确认本机实现与固件 CFCP 一致
+        EcSdkConfigProbe.install();  // ★ 抓 EasyConnect SDK 的 FTP/P2C 配置参数（只读）
+        OtaMdnsProbe.install(null);  // ★ mDNS 发现车机 _EasyConn._tcp（只发现，不连接）
+        OtaMdnsRawProbe.logInterfaces();
+        OtaMdnsRawProbe.start();     // ★ 直接发标准 mDNS 查询（NsdManager 在 API 36 被拒）
+        OtaSocketTrace.install();    // ★ 记录官方 EasyConnect 与车机 10950 的往来帧（只读）
+        OtaSocketProbe.runAsync();   // ★ 主动 connect 192.168.0.1:10950（只握手，不发任何字节）
+        PatchServer.start();         // ★ 手机侧 HTTP 服务：等车机来拉 patched zip
     }
 }

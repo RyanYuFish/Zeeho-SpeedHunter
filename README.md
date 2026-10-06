@@ -4,7 +4,9 @@ LSPosed 模块，作用于 ZEEHO App（`com.cfmoto`），实现如下功能：
 
 1. **恢复骑行记录里被隐藏的统计** —— 骑行分析入口、极速、急加速、急刹、压弯；
 2. **OTA 界面解锁 + 全链路流量记录** —— 用于研究车辆 OTA 链路的只读 hook；
-3. **自带 Material You 设置界面** —— 实时切换挂载方式与各 gate。
+3. **自带 Material You 设置界面** —— 实时切换挂载方式与各 gate；
+4. **OTA 推送控制台（socket_l）** —— 纯 Wi-Fi 直连 `192.168.0.1:10950` 推送固件包，不依赖官方 App / BLE / 厂商服务端；
+5. **仪表投屏独立入口** —— 解析投屏二维码、自动连车机 AP、模块内一键拉起投屏，绕过官方 App GUI。
 
 ## 骑行记录恢复（主机制：网络层能力位改写）
 
@@ -24,33 +26,6 @@ LSPosed 模块，作用于 ZEEHO App（`com.cfmoto`），实现如下功能：
 旧方案（沿祖先链点亮被 GONE 的控件）保留为**兜底**，默认关闭：`ride/RideOptions#VIEW_FALLBACK`。
 只在网络层失效时打开（App 换了判定源时）。
 
-## Android 16 启动崩溃规避（MobGuard）
-
-在 Android 16（SDK 36，Nothing A024 / MetroidIND）上，ZEEHO App（v3.0.5）**一启动就 SIGSEGV 闪退**，
-与模块无关（禁用模块、关闭 MTE、放宽 hidden_api 策略都照样崩）。根因是 App 打包的
-**MobTech / ShareSDK（`com.mob.tools`）JNI 反射层**在新系统上的兼容性崩溃
-（`fault addr 0x0000200000000401`，栈帧 `com.mob.tools.a.c$c.a` / `com.mob.tools.a.c$a.a`）。
-
-模块提供一个**保命 hook** `core/MobGuard`：hook 这两个类的全部 `a` 方法并直接 `return null`，
-作为 `MainHook` 的**第一个 install 调用**（先于网络层 gate，确保 App 能先活下来）。
-
-- 默认开启，`core/MobOptions#GUARD`（`mob_guard` 开关，`core/Keys#KEY_MOB_GUARD`）可遥控关闭；
-- 只在 `com.cfmoto` 进程内生效；
-- 验证：装好带 MobGuard 的 v2.0 后，`logcat` 该进程 `has died` = **0**（此前每次启动必崩），
-  HookLog 打印 `mob guard hooked com.mob.tools.a.c$c (#a x7)` / `com.mob.tools.a.c$a (#a x10)`。
-
-> 这是针对 App 自身 SDK 缺陷的规避，不属于「恢复隐藏字段」的功能逻辑；若未来 App 升级替换掉
-> 有问题的 SDK，可把 `mob_guard` 关掉恢复原始行为。
-
-## 设置界面
-
-模块自带原生设置界面（`ui.MainActivity`，桌面图标或 LSPosed 里点开模块进入）：
-
-- 状态卡实时显示当前挂载方式（WEB / WEB+VIEW / VIEW / OFF）；
-- 开关：网络层改写（主）、G1、G2、视图层兜底；
-- 开关通过**广播 + 自落盘**跨进程送达运行中的 ZEEHO App，**实时生效**。
-  通道细节见 `../docs/02-Android网络层gate实现.md`。
-
 ## OTA 抓包 / 解锁
 
 使用稳定的锚点：AndroidManifest 里的 OTA 组件类名、`ids.xml` 里的控件资源名、公开的 HTTP 客户端类名。
@@ -69,6 +44,65 @@ LSPosed 模块，作用于 ZEEHO App（`com.cfmoto`），实现如下功能：
 这一组 hook 只做界面解锁和流量记录，不伪造任何服务端数据。升级包是否存在由服务端决定——OTA 红点接口返回的 `fileInfoList` 为 `null` 时，即使界面解锁了也不会有下载动作。
 
 升级按钮只改 `setEnabled`，不碰点击监听，不会破坏 App 原有逻辑。
+
+## OTA 推送控制台（socket_l 直连）
+
+模块内置**纯 socket_l 链路**的固件推送控制台，走车机独立的 TCP 通道
+`192.168.0.1:10950`，**不依赖官方 App、不依赖 BLE、不依赖厂商服务端**。
+
+- 入口：模块主界面「仪表 OTA 推送」→ `ui/OtaActivity`；
+- 实现：`ota/OtaSocketPusher.java`（探测 + 推送）+ `ota/OtaPushService.java`（进度回调）；
+  协议已通过固件交叉验证，见 `../docs/45`（runbook）、`../docs/46`（车边测试指南）、`../docs/47`；
+- 桌面端同构工具：`tools/ota/push-ota-socket.py`（Mac 版，默认 dry-run）。
+
+### 推送流程
+
+```
+探测（车机是否在 10950 监听）
+  → 选包（SAF 选 .zip，免存储权限；或放应用私有目录直读）
+  → START 0x10000001 {fileName, vehicleType, version, md5, fileSize}
+  → 推数据帧 0x10000005（head[1]=0，fwrite 落 /media/flash/userdata/update.zip）
+  → END 0x10000003 { recvOtaFileFinishedFlag:1 }      ★ 必须带 finished 标志
+  → 收车机 0x10000004（otaVerifyMessage）→ 回 0x80000004 { recvVerifyAckFlag:1 }
+  → 车机校验 md5 / 解压 / 重启进 U-Boot 刷写
+```
+
+### 边界
+
+- `10950` 是单逻辑客户端：被占用时新连接会收到中文「服务器忙碌，已有客户端连接」。
+  推包前必须先让官方 App / 投屏断开这条通道。
+- 不触发刷写的红线（电量 ≥25%、非充电、非 Ready、原装电池、size/MD5 不符不触发、
+  无成功判据不重复触发）由 `ota/OtaOptions` 把关。
+
+## 仪表投屏（绕开官方 App）
+
+模块提供一个**独立投屏入口**，把官方 App 里「扫码 → 连热点 → 点投屏」的手工流程
+拆出来，由模块一键完成。完整的握手逆向写在 `../docs/49-仪表投屏EasyConnect握手与绕过App方案.md`。
+
+- 入口：模块主界面「仪表投屏（独立入口）」→ `ui/MirrorActivity`；
+- 实现：`ota/CarWifi.java`（自动连车机 AP）+ `ota/MirrorTrigger.java`（hook 在 `com.cfmoto` 内拉起投屏）
+  + `ota/EcHandshakeProbe.java`（EC 握手探针）。
+
+| 能力 | 结论 |
+|---|---|
+| 解析投屏二维码 URL（拿 SSID / 密码 / action） | ✅ 模块独立完成 |
+| 手机自动加入车机 AP（192.168.0.x） | ✅ 由 `CarWifi` 完成（API 29+ `WifiNetworkSpecifier`，24–28 `addNetwork`） |
+| 推镜像帧（H26x 编码 / 私有 PXC 协议） | ❌ 不可重写 —— 手机侧 EC 编排层在爱加密的 `libexec.so` 内，唯一 `classes.dex` 仅 13KB 壳 |
+| 不打开官方 App GUI 也能投屏 | 🔶 能做到，但 EC 客户端必须跑在 `com.cfmoto`（唯一加载 EC SDK 的进程），由 hook 驱动 |
+
+### 二维码 URL 
+
+车机用二维码递 Wi-Fi 凭据的壳：`action=9` = AP_MODE（车机开热点
+`ZEEHO-204dfd`）、`ssid/name` = AP 名、`pwd` = WPA2 密钥、`mac` = AP MAC。
+真正的握手在 `libECSDK.so` 里：`initialize{uuid,pwd}` → `openTransport(EC_TRANSPORT_ANDROID_WIFI)`
+→ `sendConnectType` → `C2PService::sendClientInfo{...}`（首帧鉴权）→ `LicenseManager`
+→ `onSdkConnectStatus` → `openMirror`/`startMirror`。PXC 帧 = **16 字节固定头 + JSON**。
+
+### EC 握手探针
+
+`EcHandshakeProbe` 用与官方同构的 `sendClientInfo` JSON 去敲车机 PXC 口，只发一帧只听回包，
+把「通道通不通、鉴权过不过」从猜测变成事实。头部模板可替换（`setHeaderTemplate`）——
+`cmdType` 数值与 magic 是 Carbit 私有常量，静态拿不到，**真车抓一帧回包即可对齐**（见 `docs/49` §5.3）。
 
 ## 日志
 
@@ -92,40 +126,26 @@ adb shell cat $LOG | grep ZeehoCfg                                  # 配置通�
 
 ## 安装
 
-1. 在 LSPosed 中安装发布包。
+1. 在 XPosed 中安装发布包。
 2. 将作用域限定为 ZEEHO：`com.cfmoto`。
 3. 启用模块后强制停止并重新打开 ZEEHO。
 4. 进入「我的骑行」或「历史轨迹」查看结果。
 
-发布包使用本地调试密钥签名，适合个人设备测试。公开分发前请使用自己的密钥重新构建和签名。
+发布包使用本地调试密钥签名，适合个人设备测试。
 
 ## 从源码构建
 
-包名 `com.github.zeehospeedhunter`，当前版本 **2.0**（versionCode 20）。
-环境要求：JDK 17、Android SDK 35、Gradle 9.7.1（wrapper 自带）。
+包名 `com.github.zeehospeedhunter`，环境要求：JDK 17、Android SDK 35、Gradle 9.7.1（wrapper 自带）。
 
 ```bash
 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 ./gradlew assembleRelease
-# 产物：release/zeeho-speedhunter-v2.0.apk（编完自动从 build 目录拷出）
+# 产物：release/zeeho-speedhunter-v3.0.apk（编完自动从 build 目录拷出）
 ```
-
-### 签名
-
-密钥库 `release/release.jks`（alias `speedhunter-fish`）。口令从 `gradle.properties`
-或环境变量读取（`STORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`）：
-
-```bash
-./gradlew assembleRelease \
-  -PSTORE_PASSWORD=xxx -PKEY_ALIAS=speedhunter-fish -PKEY_PASSWORD=xxx
-```
-
-三者不齐全时自动回退 debug 签名（本地随手可编）。
-`gradle.properties` 与 `release/*.jks`、`release/*.apk` 均已排除在 git 之外。
 
 ## 隐私与安全
 
-- 模块没有网络权限，不上传骑行记录、车辆信息、位置或账号数据；
+- 模块网络权限仅用作投屏/推送OTA，不上传骑行记录、车辆信息、位置或账号数据；
 - 模块不修改 ZEEHO APK，不绕过账号权限，也不改变车辆控制逻辑；
 - 速度数据只用于界面显示，不能作为仪表或安全决策的替代品；
 - 请勿在骑行过程中操作手机或依赖本模块读数；
@@ -139,4 +159,8 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 
 ## 许可证
 
-本项目原创源码按 MIT License 发布。许可证只适用于本仓库中的原创源码和文档，不适用于 ZEEHO/CFMOTO 的 APK、商标、图标、地图素材、接口数据或其他第三方依赖；这些内容仍受各自权利人和适用许可条款约束。
+本项目原创代码及文档以 AGPL-3.0 授权，许可证全文见仓库根目录 LICENSE 文件。
+
+该许可证仅适用于本仓库中的原创代码和文档，不适用于 ZEEHO/CFMOTO 的 APK、商标、图标、地图素材，以及通过其接口获取的实际数据内容；这些内容仍受各自权利人和适用许可条款约束。
+
+本项目使用的第三方依赖，其许可证见各依赖项自带的 LICENSE 文件或相关清单文件。

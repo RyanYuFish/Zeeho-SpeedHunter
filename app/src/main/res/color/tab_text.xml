@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tab 选中/未选中文字色：选中 primary + 加粗，未选中 onSurfaceVariant -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="?attr/colorPrimary" android:state_selected="true" />
+    <item android:color="?attr/colorOnSurfaceVariant" />
+</selector>

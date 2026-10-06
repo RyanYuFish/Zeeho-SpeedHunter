@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_tune"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
+    android:clipToPadding="false"
+    android:fillViewport="true"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="18dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="24dp">
+
+        <!-- ===== 顶栏：返回圆片 + 右上角「恢复默认」 ===== -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingTop="10dp">
+
+            <ImageButton
+                android:id="@+id/btn_back"
+                style="@style/NavCircleButton"
+                android:contentDescription="返回"
+                android:src="@drawable/ic_arrow_back" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <!--
+              「恢复默认」从底部整宽按钮挪到右上角：
+              它是「重置」，不是本页的主线动作（主线是滑块 → 保存 → 清空重灌），
+              放底部跟「保存并立即生效」并排会让人分不清哪个才是主按钮。
+              点它只发一次广播改参数，不 finish / 不 recreate，App 不会重启。
+            -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_reset"
+                style="@style/TopTextButton"
+                android:text="恢复默认" />
+        </LinearLayout>
+
+        <!-- ===== 大标题 ===== -->
+        <TextView
+            style="@style/PageTitle"
+            android:layout_marginTop="6dp"
+            android:text="压弯标定" />
+
+        <!-- ===== 参数滑块 ===== -->
+        <com.google.android.material.card.MaterialCardView style="@style/CardBlock">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp">
+
+                <TextView
+                    style="@style/ParamTitle"
+                    android:text="① 最短行程里程（km）" />
+
+                <TextView
+                    style="@style/ParamHelp"
+                    android:text="短于此里程的整趟行程记 0 次压弯。★ 最有效的一档 —— 1km 以下是停车 GPS 乱飘出来的假弯，密度是长途的 8 倍。调到 0 = 不滤。" />
+
+                <TextView
+                    android:id="@+id/tv_min_km"
+                    style="@style/ParamValue"
+                    android:text="1.0 km" />
+
+                <SeekBar
+                    android:id="@+id/sb_min_km"
+                    style="@style/ParamSeek"
+                    android:max="40"
+                    android:progress="10" />
+
+                <View style="@style/ParamDivider" />
+
+                <TextView
+                    style="@style/ParamTitle"
+                    android:text="② 累计转角下限（度）" />
+
+                <TextView
+                    style="@style/ParamHelp"
+                    android:text="一个弯至少要累计转过这么多度才算一次。调大 → 一个小弯的多次抖动合成一次。官方脚本 v1.0 给的是 15，实测偏松（会把连续 S 弯数成好几次）。" />
+
+                <TextView
+                    android:id="@+id/tv_cum_min"
+                    style="@style/ParamValue"
+                    android:text="30°" />
+
+                <SeekBar
+                    android:id="@+id/sb_cum_min"
+                    style="@style/ParamSeek"
+                    android:max="90"
+                    android:progress="30" />
+
+                <View style="@style/ParamDivider" />
+
+                <TextView
+                    style="@style/ParamTitle"
+                    android:text="③ 压弯速度下限（km/h）" />
+
+                <TextView
+                    style="@style/ParamHelp"
+                    android:text="低于这个速度的弯不算（挪车、掉头）。官方脚本 v1.0 给的是 10，实测召回过高；20~25 比较接近体感。" />
+
+                <TextView
+                    android:id="@+id/tv_v_min"
+                    style="@style/ParamValue"
+                    android:text="20 km/h" />
+
+                <SeekBar
+                    android:id="@+id/sb_v_min"
+                    style="@style/ParamSeek"
+                    android:max="50"
+                    android:progress="20" />
+
+                <View style="@style/ParamDivider" />
+
+                <TextView
+                    style="@style/ParamTitle"
+                    android:text="④ 单步转角阈值（度）" />
+
+                <TextView
+                    style="@style/ParamHelp"
+                    android:text="航向变化超过这个才算「在转」。调大 → 只认明显的转弯，小弯全漏（通常不用动）。" />
+
+                <TextView
+                    android:id="@+id/tv_seed"
+                    style="@style/ParamValue"
+                    android:text="5°" />
+
+                <SeekBar
+                    android:id="@+id/sb_seed"
+                    style="@style/ParamSeek"
+                    android:max="20"
+                    android:progress="5" />
+
+                <View style="@style/ParamDivider" />
+
+                <TextView
+                    style="@style/ParamTitle"
+                    android:text="⑤ 压弯速度上限（km/h）" />
+
+                <TextView
+                    style="@style/ParamHelp"
+                    android:text="整段最高速超过这个就丢弃（高速过弯不算压弯）。" />
+
+                <TextView
+                    android:id="@+id/tv_v_max"
+                    style="@style/ParamValue"
+                    android:text="80 km/h" />
+
+                <SeekBar
+                    android:id="@+id/sb_v_max"
+                    style="@style/ParamSeek"
+                    android:max="120"
+                    android:progress="80" />
+
+                <View style="@style/ParamDivider" />
+
+                <TextView
+                    style="@style/ParamTitle"
+                    android:text="⑥ 累计转角上限（度）" />
+
+                <TextView
+                    style="@style/ParamHelp"
+                    android:text="超过这个就不算弯（原地画圈）。" />
+
+                <TextView
+                    android:id="@+id/tv_cum_cap"
+                    style="@style/ParamValue"
+                    android:text="90°" />
+
+                <SeekBar
+                    android:id="@+id/sb_cum_cap"
+                    style="@style/ParamSeek"
+                    android:max="180"
+                    android:progress="90" />
+
+                <View style="@style/ParamDivider" />
+
+                <TextView
+                    style="@style/ParamTitle"
+                    android:text="⑦ 急刹标定系数" />
+
+                <TextView
+                    style="@style/ParamHelp"
+                    android:text="双窗口（5s+3s）会把同一脚刹车数两次，乘回去。脚本 v9 定稿 2.5，觉得急刹偏多就往下调。" />
+
+                <TextView
+                    android:id="@+id/tv_brake_calib"
+                    style="@style/ParamValue"
+                    android:text="2.50" />
+
+                <SeekBar
+                    android:id="@+id/sb_brake_calib"
+                    style="@style/ParamSeek"
+                    android:max="100"
+                    android:progress="50" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- ===== 整体缩放 ===== -->
+        <com.google.android.material.card.MaterialCardView style="@style/CardBlock">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <TextView
+                    style="@style/ParamTitle"
+                    android:text="⑧ 整体系数（紧急总闸）" />
+
+                <TextView
+                    style="@style/ParamHelp"
+                    android:text="最终结果 = 计数 × 本值。只想整体压低/抬高、又不想动上面任何阈值时用它。" />
+
+                <TextView
+                    android:id="@+id/tv_coef"
+                    style="@style/ParamValue"
+                    android:text="1.00" />
+
+                <SeekBar
+                    android:id="@+id/sb_coef"
+                    style="@style/ParamSeek"
+                    android:max="200"
+                    android:progress="100" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- ===== 动作 ===== -->
+        <com.google.android.material.card.MaterialCardView style="@style/CardBlock">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_apply"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="保存并立即生效" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_clear"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="清空账本，准备重算" />
+
+                <TextView
+                    android:id="@+id/tv_state"
+                    style="@style/ParamHelp"
+                    android:layout_marginTop="10dp"
+                    android:text="账本状态：读取中…" />
+
+                <!--
+                  ===== 判定过程日志 =====
+                  默认 GONE：这一片是等宽日志，一个响应 8 趟、每行最多 900 字符，
+                  常驻显示会把滑块全顶出屏幕。开关在下面，勾上才显示。
+                -->
+                <!--
+                  ★ 开关必须在 box 外面：box 勾上时才有内容，勾上后要还能再取消，
+                  所以开关本身不能被 box 一起收走。
+                -->
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/sw_debug_bend"
+                    style="@style/ParamHelp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="打印压弯判定过程（诊断）" />
+
+                <LinearLayout
+                    android:id="@+id/box_debug_log"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        style="@style/ParamHelp"
+                        android:text="下面就是逐趟的判定过程：每个候选弯一行，含下标区间 / 累计转角 / 方向 / 段内最高速，被拒的会写明哪道闸挡的。回 ZEEHO App 翻一次「历史轨迹」就出。" />
+
+                    <!-- 裸 TextView，不要套 ScrollView（见 activity_ota.xml 里的实测说明） -->
+                    <TextView
+                        android:id="@+id/tv_debug_log"
+                        android:layout_width="match_parent"
+                        android:layout_height="240dp"
+                        android:background="@drawable/bg_log_pane"
+                        android:fontFamily="monospace"
+                        android:padding="12dp"
+                        android:scrollbarStyle="insideOverlay"
+                        android:scrollbars="vertical"
+                        android:fadeScrollbars="false"
+                        android:textColor="#1A1111"
+                        android:textSize="10sp"
+                        android:text="（还没有判定日志）" />
+                </LinearLayout>
+
+                <!--
+                  ===== 原理说明（放最底下）=====
+                  「怎么用」和「为什么默认是这组数」是参考资料，不是操作入口，
+                  摆在最前面会让人先读一大段文字才看到滑块。
+                -->
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/CardBlock"
+                    app:cardBackgroundColor="?attr/colorPrimaryContainer">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="18dp">
+
+                        <TextView
+                            style="@style/CardBlockTitle"
+                            android:text="原理与用法"
+                            android:textColor="?attr/colorOnPrimaryContainer" />
+
+                        <TextView
+                            style="@style/CardBlockBody"
+                            android:text="@string/tune_howto"
+                            android:textColor="?attr/colorOnPrimaryContainer" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    style="@style/CardBlock"
+                    app:cardBackgroundColor="?attr/colorSecondaryContainer">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="18dp">
+
+                        <TextView
+                            style="@style/CardBlockTitle"
+                            android:text="为什么默认是这组数"
+                            android:textColor="?attr/colorOnSecondaryContainer" />
+
+                        <TextView
+                            style="@style/CardBlockBody"
+                            android:text="@string/tune_why"
+                            android:textColor="?attr/colorOnSecondaryContainer" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+</ScrollView>

@@ -24,6 +24,30 @@ public final class RideOptions {
         return RemoteSettings.getBool(Keys.KEY_VIEW_LAYER, false);
     }
 
+    /**
+     * 骑行数据回填（急刹 / 压弯）—— 由模块 App 的界面控制（{@code Keys.KEY_RIDE_FILL}，默认<b>开</b>）。
+     *
+     * <p>算法来自 {@code ZeehoRideFill.js} v15 的 Java 版：
+     * {@code ride.RideFill}。从 {@code ridetrack_v2} 带回来的原始轨迹还原
+     * {@code brakesTimes} / {@code bendingTimes}，按天落盘到
+     * {@code com.cfmoto/files/zeeho_days/}，再喂给 {@code myRideInfo}（每日双计）与
+     * {@code analyse}（月度汇总）。只补 0 值，服务端有数的字段一律不动。</p>
+     */
+    public static boolean rideFill() {
+        return RemoteSettings.getBool(Keys.KEY_RIDE_FILL, true);
+    }
+
+    /**
+     * 回填时顺带把 {@code ridetrack_v2} 的 {@code pageSize} 放大（{@link RideFetch}），
+     * 让每个月一次拿全 —— 默认<b>开</b>。
+     *
+     * <p>跟随 {@link #rideFill()} 一起生效：pageSize 放大本身没有任何可见效果，
+     * 它的唯一用途就是把完整轨迹喂进 {@link RideFill}，回填关了就没必要放大。</p>
+     */
+    public static boolean fullScan() {
+        return rideFill() && RemoteSettings.getBool(Keys.KEY_RIDE_FULLSCAN, true);
+    }
+
     /** 视图兜底开着时，记录每个被恢复的数值控件（首次赋值才记，用来确认数据是否真的回填了）。 */
     public static final boolean LOG_TEXT = true;
 

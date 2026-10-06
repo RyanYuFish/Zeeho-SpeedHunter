@@ -75,4 +75,164 @@
         <item name="android:background">?attr/colorOutline</item>
         <item name="android:alpha">0.4</item>
     </style>
+
+    <!-- ===== 「压弯标定」页 ===== -->
+    <style name="CardBlock">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">14dp</item>
+        <item name="cardCornerRadius">24dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeWidth">0dp</item>
+    </style>
+
+    <style name="CardBlockTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textAppearance">?attr/textAppearanceTitleMedium</item>
+    </style>
+
+    <style name="CardBlockBody">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:lineSpacingMultiplier">1.25</item>
+        <item name="android:textAppearance">?attr/textAppearanceBodySmall</item>
+    </style>
+
+    <style name="ParamTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">14dp</item>
+        <item name="android:textAppearance">?attr/textAppearanceTitleSmall</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+
+    <style name="ParamHelp">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:lineSpacingMultiplier">1.25</item>
+        <item name="android:textAppearance">?attr/textAppearanceBodySmall</item>
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+
+    <style name="ParamValue">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">6dp</item>
+        <item name="android:textAppearance">?attr/textAppearanceHeadlineSmall</item>
+        <item name="android:textColor">?attr/colorPrimary</item>
+    </style>
+
+    <style name="ParamSeek">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">2dp</item>
+    </style>
+
+    <style name="ParamDivider">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">1dp</item>
+        <item name="android:layout_marginTop">14dp</item>
+        <item name="android:background">?attr/colorOutline</item>
+        <item name="android:alpha">0.4</item>
+    </style>
+
+    <!-- ===== Material You 页面骨架（大标题 + Tab + 日志区） ===== -->
+
+    <!-- 返回按钮：圆形淡底，对应参考图左上角那个圆片 -->
+    <style name="NavCircleButton">
+        <item name="android:layout_width">40dp</item>
+        <item name="android:layout_height">40dp</item>
+        <!-- ★ 圆形必须 clipToOutline：shape=oval 的 drawable 只是背景，
+             不裁剪的话 ImageButton 还是方的（实测踩过）。 -->
+        <item name="android:background">@drawable/bg_nav_circle</item>
+        <item name="android:clipToOutline">true</item>
+        <item name="android:padding">9dp</item>
+        <item name="android:scaleType">fitCenter</item>
+        <item name="tint">?attr/colorOnSurface</item>
+    </style>
+
+    <!-- 页面大标题：左对齐、字重轻、占 32sp（M3 displaySmall 的观感） -->
+    <style name="PageTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">30sp</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:letterSpacing">0.0</item>
+    </style>
+
+    <!-- 顶栏右侧的小图标按钮（无背景，跟参考图一样只留图标） -->
+    <style name="TopIconButton">
+        <item name="android:layout_width">40dp</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:padding">8dp</item>
+        <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
+        <item name="tint">?attr/colorOnSurfaceVariant</item>
+    </style>
+
+    <!--
+      顶栏右上角的小文字按钮（「恢复默认」）。
+      ★ 必须把 minWidth/minHeight/insetTop/insetBottom 全部清成 0：
+        M3 Button 默认带 48dp 最小高 + 6dp inset，放在 40dp 的顶栏里会把整行撑高、
+        圆片返回键也被挤得不再居中。
+    -->
+    <style name="TopTextButton" parent="Widget.Material3.Button.TextButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:paddingStart">10dp</item>
+        <item name="android:paddingEnd">10dp</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingBottom">4dp</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">?attr/colorPrimary</item>
+    </style>
+
+    <!--
+      Tab 文字样式：只管字号，<b>不要在这里设 textColor</b>。
+      颜色走 TabLayout 的 app:tabTextColor + app:tabSelectedTextColor，
+      那两个属性在 TabLayout 的 attrs 里解析 ?attr/ 才可靠；
+      放进 textAppearance 里会让整条链走到 ColorStateList 的 ?attr/ 上（实测不生效）。
+    -->
+    <style name="TabLabel">
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <!--
+      等宽日志区。
+      ★ 固定高度而不是 weight=1：本页整体在 NestedScrollView 里（步骤卡说明文字多，要能滚），
+      weight 在 wrap_content 链上不生效。给 260dp 是实测下来「一屏能看 25 行左右、
+      又不会把下面的步骤卡顶太远」的平衡点。
+    -->
+    
+
+    <!-- 操作台的四步按钮：等分一行四个 -->
+    <style name="StepBtn">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginEnd">6dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:paddingStart">4dp</item>
+        <item name="android:paddingEnd">4dp</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
+    <!-- 操作台的步骤卡：每一步一行图标 + 标题 + 说明 -->
+    
+
+    
+
+    
+
+    
 </resources>

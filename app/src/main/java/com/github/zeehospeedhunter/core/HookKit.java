@@ -27,6 +27,22 @@ public final class HookKit {
     }
 
     /**
+     * 按全限定名找类，找不到返回 {@code null}（不抛异常）。
+     *
+     * <p>用于「类名不确定是否被加固重定位」的场景：例如公开库被 App 改包名前缀
+     * （{@code org.eclipse.paho} → {@code com.cfmoto.org.eclipse.paho}），
+     * 两种前缀都要试。用 {@link Class#forName} 走目标 ClassLoader，
+     * 避免拿到 boot classloader 里的同名系统类。</p>
+     */
+    public static Class<?> findClassIfExists(String className) {
+        try {
+            return Class.forName(className, false, targetClassLoader);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /**
      * 类/方法存在才挂，不存在就记 {@code skip}。
      *
      * @param tag 日志前缀（用 {@link HookLog} 里的常量）

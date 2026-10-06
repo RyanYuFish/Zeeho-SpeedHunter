@@ -38,6 +38,10 @@ public final class HookLog {
     public static final String WEBVIEW = "[ZeehoWebView]";
     public static final String CLASS = "[ZeehoClass]";
     public static final String CONTROL = "[ZeehoControl]";
+    /** 骑行数据回填（急刹 / 压弯，算法与 {@code ZeehoRideFill.js} v15 对齐）。 */
+    public static final String RIDE = "[ZeehoRide]";
+    /** 仪表投屏（EasyConnect 镜像，绕过官方 App 手动入口）。 */
+    public static final String MIRROR = "[ZeehoMirror]";
 
     private static final String FILE_NAME = "zeeho_hook.log";
     private static final long MAX_BYTES = 4L * 1024 * 1024;
@@ -79,8 +83,19 @@ public final class HookLog {
         return "internal=" + internalFile + " external=" + externalFile;
     }
 
-    /** 唯一日志出口：框架 + 两个落盘位置（各自独立失败，互不影响）。 */
+    /**
+     * 唯一日志出口：logcat + 两个落盘位置（各自独立失败，互不影响）。
+     *
+     * <p>2026-10-04 加 {@code android.util.Log}：手机上随便装个 logcat 阅读器按 tag
+     * {@code ZeehoHook} 过滤就能看，不必为了读日志非得插数据线。
+     * 落盘仍然是主通道 —— LSPosed（IT 分支，寄生管理器）自己不把
+     * {@link XposedBridge#log} 写进 logcat。</p>
+     */
     public static void log(String message) {
+        try {
+            android.util.Log.d(LOGCAT_TAG, message);
+        } catch (Throwable ignored) {
+        }
         try {
             XposedBridge.log(message);
         } catch (Throwable ignored) {
@@ -90,6 +105,9 @@ public final class HookLog {
             append(externalFile, message);
         }
     }
+
+    /** logcat 过滤 tag —— 手机上用 logcat 阅读器 grep 这个。 */
+    public static final String LOGCAT_TAG = "ZeehoHook";
 
     private static void append(File file, String message) {
         if (file == null) return;

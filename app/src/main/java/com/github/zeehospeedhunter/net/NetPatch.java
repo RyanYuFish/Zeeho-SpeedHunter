@@ -13,6 +13,8 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
 import com.github.zeehospeedhunter.core.HookKit;
 import com.github.zeehospeedhunter.core.HookLog;
+import com.github.zeehospeedhunter.ride.RideFill;
+import com.github.zeehospeedhunter.ride.RideOptions;
 
 /**
  * 网络层能力位改写：把 {@code vehicleKinds} / {@code cyclingEventStatisticFlag} 两个
@@ -82,15 +84,20 @@ public final class NetPatch {
             Object originalBody = XposedHelpers.callMethod(response, "body");
             if (originalBody == null) return;
 
+            // ridetrack_v2 被 ride.RideFetch 把 pageSize 放大到 200，响应体会到 MB 级，
+            // 所以这个 URL 走单独的上限，否则刚放宽的请求又被这里挡掉（回填永远不生效）。
+            long maxBytes = url.contains("ridetrack_v2")
+                    ? com.github.zeehospeedhunter.ride.RideFetch.pageSizeBytes()
+                    : NetOptions.MAX_PATCH_BYTES;
+
             Object rawLength = XposedHelpers.callMethod(originalBody, "contentLength");
             if (rawLength instanceof Number
-                    && ((Number) rawLength).longValue() > NetOptions.MAX_PATCH_BYTES) {
+                    && ((Number) rawLength).longValue() > maxBytes) {
                 return;
             }
 
             // peekBody 拷一份出来读，原始流留给 App（Retrofit + Gson 读的是 charStream）
-            Object peeked = XposedHelpers.callMethod(response, "peekBody",
-                    NetOptions.MAX_PATCH_BYTES);
+            Object peeked = XposedHelpers.callMethod(response, "peekBody", maxBytes);
             if (peeked == null) return;
             Object rawText = XposedHelpers.callMethod(peeked, "string");
             if (!(rawText instanceof String)) return;
@@ -100,13 +107,30 @@ public final class NetPatch {
             // 先做廉价子串判断，避免给每个响应都做一次 JSON 解析
             boolean hasAnalyseKey = body.contains(NetOptions.KEY_ANALYSE_GATE);
             boolean hasEventKey = body.contains(NetOptions.KEY_EVENT_GATE);
-            if (!hasAnalyseKey && !hasEventKey) return;
 
             JSONObject root = new JSONObject(body);
             Tally tally = new Tally();
-            walk(root, url, tally);
+            com.github.zeehospeedhunter.ride.RideFill.Result fill = null;
 
-            if (!tally.changed) {
+            // 骑行回填先跑（ridetrack_v2 / myRideInfo / analyse 三个 handler），
+            // 能力位改写后跑 —— 都改同一棵 JSON 树，最后只重建一次响应体。
+            //
+            // ★ 这里不能再加「没有 gate key 才回填」的守卫：ridetrack_v2 的响应体里
+            // 同时带着 vehicleKinds / cyclingEventStatisticFlag（App 拿它决定要不要上传
+            // 骑行事件），所以 hasAnalyseKey / hasEventKey 恒为 true。若拿它当门槛，
+            // 唯一能提供 trajectory 的接口就被自己挡在门外，回填永远跑不起来
+            //（表现：日志只有 analyse/event 命中，没有 [ZeehoRide] ... done）。
+            // 真正的分流在 RideFill.mayFill(url, body) 里，它只认三个接口的特征字段。
+            if (RideOptions.rideFill() && RideFill.mayFill(url, body)) {
+                fill = RideFill.fill(root, url);
+            }
+
+            if (hasAnalyseKey || hasEventKey) {
+                walk(root, url, tally);
+            }
+
+            boolean fillChanged = fill != null && fill.changed;
+            if (!tally.changed && !fillChanged) {
                 if (NetOptions.LOG_SEEN_UNCHANGED) {
                     logOnce("seen " + shortUrl(url) + " -> already on"
                             + " (analyse=" + tally.analyse + " event=" + tally.event + ")");
@@ -137,6 +161,7 @@ public final class NetPatch {
             param.setResult(patched);
             logOnce("patched " + shortUrl(url)
                     + "  analyse=" + tally.analyse + " event=" + tally.event
+                    + (fillChanged ? ("  fill{rides=" + fill.rides + " days=" + fill.days + "}") : "")
                     + "  (" + bytes.length + " B)");
         } catch (Throwable t) {
             // 改写失败必须静默 —— 宁可没效果，也不能让 App 请求崩掉

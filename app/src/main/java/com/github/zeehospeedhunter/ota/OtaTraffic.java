@@ -70,12 +70,37 @@ public final class OtaTraffic {
             String marker = isSuspectDownload(urlText) ? "★ " : "";
             HookLog.log(HookLog.HTTP + " " + marker + method + " " + urlText
                     + "  <" + source + ">");
+            // ★★ 车机热点地址：App 把包传给车机时走这里，是本项目最关键的未知流量
+            if (isInstrumentHotspot(urlText)) {
+                HookLog.log(HookLog.OTA + " ★★★ 车机上传请求 " + method + " " + urlText
+                        + "   ← 抓到了！这就是推送协议");
+            }
             if (OtaOptions.LOG_REQUEST_BODY) {
                 logRequestBody(method, urlText, request);
             }
         } catch (Throwable t) {
             HookLog.log(HookLog.HTTP + " log failed: " + t);
         }
+    }
+
+    /**
+     * 是否指向车机热点。
+     *
+     * <p>官方流程：手机开热点（网关 {@code 192.168.43.1}），车机连上来，
+     * 然后 App 用「网络协议」把升级包 HTTP 传给车机。抓到这个请求就等于
+     * 拿到了推送协议本身（路径 / 鉴权头 / 是整包还是分片）。</p>
+     *
+     * <p>扫的网段：{@code 192.168.43.x}（Android 热点默认）、
+     * {@code 192.168.4x.x}、以及 {@code 10.0.0.x}/{@code 10.0.1.x}（车机 AP 常见）。</p>
+     */
+    private static boolean isInstrumentHotspot(String urlText) {
+        if (urlText == null) return false;
+        return urlText.contains("192.168.43.")      // Android 热点默认网关
+                || urlText.contains("192.168.4")    // 车机 AP 常见段
+                || urlText.contains("/upload")
+                || urlText.contains("/ota")
+                || urlText.contains("192.168.31.")   // 部分车机用这个段
+                || urlText.contains("192.168.42.");
     }
 
     /** 记录 POST/PUT/PATCH 的请求体（okio Buffer 走一遍，不消费原始流）。 */

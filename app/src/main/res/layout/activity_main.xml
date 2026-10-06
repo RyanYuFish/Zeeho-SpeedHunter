@@ -195,6 +195,299 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- ===== 自制固件 OTA（最后一公里） ===== -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="?attr/colorSurface"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorOutline"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout style="@style/SettingRow">
+                    <ImageView
+                        style="@style/SettingRowIcon"
+                        android:src="@drawable/ic_flash"
+                        app:tint="?attr/colorPrimary"
+                        android:importantForAccessibility="no" />
+                    <LinearLayout style="@style/SettingRowText">
+                        <TextView
+                            style="@style/SettingRowTitle"
+                            android:text="自制固件 OTA（最后一公里）" />
+                        <TextView
+                            style="@style/SettingRowSubtitle"
+                            android:text="Wi-Fi Direct 建连 → 手写 ADB 推包 → 触发仪表刷写，四步全在手机上完成" />
+                    </LinearLayout>
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_ota_flash"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:text="操作台"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <View style="@style/SettingDivider" />
+
+                <LinearLayout style="@style/SettingRow">
+                    <ImageView
+                        style="@style/SettingRowIcon"
+                        android:src="@drawable/ic_info"
+                        app:tint="?attr/colorOnSurfaceVariant"
+                        android:importantForAccessibility="no" />
+                    <LinearLayout style="@style/SettingRowText">
+                        <TextView
+                            style="@style/SettingRowTitle"
+                            android:text="刷写前提" />
+                        <TextView
+                            style="@style/SettingRowSubtitle"
+                            android:text="车要上电、仪表进升级模式（下键 + SET 长按 10 秒）；电量 ≥25%、不在充电、非 Ready、原装电池；刷写全程别断电" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- ===== 仪表投屏（EasyConnect 镜像，绕过官方 App） ===== -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="?attr/colorSurface"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorOutline"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout style="@style/SettingRow">
+                    <ImageView
+                        style="@style/SettingRowIcon"
+                        android:src="@drawable/ic_flash"
+                        app:tint="?attr/colorPrimary"
+                        android:importantForAccessibility="no" />
+                    <LinearLayout style="@style/SettingRowText">
+                        <TextView
+                            style="@style/SettingRowTitle"
+                            android:text="仪表投屏（独立入口）" />
+                        <TextView
+                            style="@style/SettingRowSubtitle"
+                            android:text="解析投屏二维码 → 自动连车机 AP → 一键拉起官方投屏，不用在官方 App 里手动操作" />
+                    </LinearLayout>
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_mirror"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:text="投屏"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- ===== 骑行数据回填（急刹 / 压弯） ===== -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="?attr/colorSurface"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorOutline"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout style="@style/SettingRow">
+                    <ImageView
+                        style="@style/SettingRowIcon"
+                        android:src="@drawable/ic_visibility"
+                        app:tint="?attr/colorPrimary"
+                        android:importantForAccessibility="no" />
+                    <LinearLayout style="@style/SettingRowText">
+                        <TextView
+                            style="@style/SettingRowTitle"
+                            android:text="急刹 / 压弯回填" />
+                        <TextView
+                            style="@style/SettingRowSubtitle"
+                            android:text="从行程轨迹还原 7 月 2 日后缺失的急刹 / 压弯数；只补 0 值，服务端有数的不动" />
+                    </LinearLayout>
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/sw_ride_fill"
+                        style="@style/SettingRowSwitch" />
+                </LinearLayout>
+
+                <View style="@style/SettingDivider" />
+
+                <LinearLayout style="@style/SettingRow">
+                    <ImageView
+                        style="@style/SettingRowIcon"
+                        android:src="@drawable/ic_info"
+                        app:tint="?attr/colorOnSurfaceVariant"
+                        android:importantForAccessibility="no" />
+                    <LinearLayout style="@style/SettingRowText">
+                        <TextView
+                            style="@style/SettingRowTitle"
+                            android:text="回填到哪" />
+                        <TextView
+                            style="@style/SettingRowSubtitle"
+                            android:text="按天落在 com.cfmoto 的 files/zeeho_days/，给「每日 / 月度」两页聚合用；关掉即停，旧数据保留" />
+                    </LinearLayout>
+                    <LinearLayout style="@style/SettingRowText">
+                        <TextView
+                            style="@style/SettingRowTitle"
+                            android:text="怎么补全" />
+                        <TextView
+                            style="@style/SettingRowSubtitle"
+                            android:text="「我的骑行 → 历史轨迹」按月发请求且没有上拉加载，所以自动把每页 20 条放大到 200 条；逐月点开 7 / 8 / 9 / 10 月即可把 7 月 2 日之后全部行程补齐" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- ===== 压弯标定（运行时调参入口） ===== -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="?attr/colorSurface"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <LinearLayout
+                    style="@style/SettingRow"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:paddingTop="0dp"
+                    android:paddingBottom="6dp">
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_tune"
+                        app:tint="?attr/colorOnSurface" />
+
+                    <LinearLayout style="@style/SettingRowText">
+                        <TextView
+                            style="@style/SettingRowTitle"
+                            android:text="压弯标定" />
+                        <TextView
+                            style="@style/SettingRowSubtitle"
+                            android:text="嫌压弯次数太多 / 太少？8 个阈值实时可调，每项都写清了「调它会发生什么」，改完回 App 翻一遍历史轨迹即可重算" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_tune"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="打开标定台" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- ===== 手机端日志（只在 OTA 操作台显示） ===== -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="?attr/colorSurface"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorOutline"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout style="@style/SettingRow">
+                    <ImageView
+                        style="@style/SettingRowIcon"
+                        android:src="@drawable/ic_visibility"
+                        app:tint="?attr/colorPrimary"
+                        android:importantForAccessibility="no" />
+                    <LinearLayout style="@style/SettingRowText">
+                        <TextView
+                            style="@style/SettingRowTitle"
+                            android:text="手机端日志（仅 OTA 页）" />
+                        <TextView
+                            style="@style/SettingRowSubtitle"
+                            android:text="悬浮窗只在上一个「操作台」里挂：进去自动上屏、退出自动收起。平时不在模块里常挂，免得刷车时挡视线" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <View style="@style/SettingDivider" />
+
+                <LinearLayout style="@style/SettingRow">
+                    <ImageView
+                        style="@style/SettingRowIcon"
+                        android:src="@drawable/ic_info"
+                        app:tint="?attr/colorOnSurfaceVariant"
+                        android:importantForAccessibility="no" />
+                    <LinearLayout style="@style/SettingRowText">
+                        <TextView
+                            style="@style/SettingRowTitle"
+                            android:text="手机端日志" />
+                        <TextView
+                            android:id="@+id/tv_hud_state"
+                            style="@style/SettingRowSubtitle"
+                            android:text="—" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <View style="@style/SettingDivider" />
+
+                <!-- 完整历史日志始终落在文件 + logcat 里，页内只看得到本次操作产生的部分 -->
+                <LinearLayout style="@style/SettingRow">
+                    <ImageView
+                        style="@style/SettingRowIcon"
+                        android:src="@drawable/ic_info"
+                        app:tint="?attr/colorOnSurfaceVariant"
+                        android:importantForAccessibility="no" />
+                    <LinearLayout style="@style/SettingRowText">
+                        <TextView
+                            style="@style/SettingRowTitle"
+                            android:text="没有悬浮窗时怎么看" />
+                        <TextView
+                            style="@style/SettingRowSubtitle"
+                            android:text="hook 侧日志落在 com.cfmoto 的 files/zeeho_hook.log，logcat 用 tag「ZeehoHook」—— 一样能查，只是要连 adb" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- ===== 说明 ===== -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"

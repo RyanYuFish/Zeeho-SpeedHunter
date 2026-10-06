@@ -8,6 +8,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -38,15 +39,18 @@ public final class MainActivity extends AppCompatActivity {
     private MaterialSwitch swG1;
     private MaterialSwitch swG2;
     private MaterialSwitch swView;
+    private MaterialSwitch swRideFill;
 
     private TextView tvStatusDetail;
     private TextView tvModeChip;
+    private TextView tvHudState;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setupEdgeToEdge();
         setContentView(R.layout.activity_main);
+        BackGestureCompat.install(this);
         applyInsets();
 
         prefs = android.preference.PreferenceManager.getDefaultSharedPreferences(this);
@@ -58,13 +62,16 @@ public final class MainActivity extends AppCompatActivity {
         swG1 = findViewById(R.id.sw_g1);
         swG2 = findViewById(R.id.sw_g2);
         swView = findViewById(R.id.sw_view);
+        swRideFill = findViewById(R.id.sw_ride_fill);
         tvStatusDetail = findViewById(R.id.tv_status_detail);
         tvModeChip = findViewById(R.id.tv_mode_chip);
+        tvHudState = findViewById(R.id.tv_hud_state);
 
         swWeb.setChecked(prefs.getBoolean(Keys.KEY_WEB_LAYER, true));
         swG1.setChecked(prefs.getBoolean(Keys.KEY_GATE_ANALYSE, true));
         swG2.setChecked(prefs.getBoolean(Keys.KEY_GATE_EVENT, true));
         swView.setChecked(prefs.getBoolean(Keys.KEY_VIEW_LAYER, false));
+        swRideFill.setChecked(prefs.getBoolean(Keys.KEY_RIDE_FILL, true));
 
         // 首次打开就把默认值落盘 —— 否则 prefs 文件不存在，
         // hook 进程的 XSharedPreferences 兜底通道拿不到任何键
@@ -77,8 +84,70 @@ public final class MainActivity extends AppCompatActivity {
         swG1.setOnCheckedChangeListener(listener);
         swG2.setOnCheckedChangeListener(listener);
         swView.setOnCheckedChangeListener(listener);
+        swRideFill.setOnCheckedChangeListener(listener);
+
+        // 自制固件 OTA：跳「最后一公里」操作台（P2P 建连 / 推包 / 触发 / 看日志）
+        findViewById(R.id.btn_ota_flash).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    startActivity(new android.content.Intent(
+                            MainActivity.this, OtaActivity.class));
+                } catch (Throwable t) {
+                    Toast.makeText(MainActivity.this, "打不开 OTA 操作台：" + t,
+                            Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+
+        // 压弯标定：8 个阈值实时可调，每项带「调它会发生什么」说明
+        findViewById(R.id.btn_tune).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    startActivity(new android.content.Intent(
+                            MainActivity.this, TuneActivity.class));
+                } catch (Throwable t) {
+                    Toast.makeText(MainActivity.this, "打不开标定台：" + t,
+                            Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+
+        // 仪表投屏：独立入口，绕过官方 App 手动操作（解析二维码 → 连 AP → 拉起投屏）
+        findViewById(R.id.btn_mirror).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    startActivity(new android.content.Intent(
+                            MainActivity.this, MirrorActivity.class));
+                } catch (Throwable t) {
+                    Toast.makeText(MainActivity.this, "打不开投屏页：" + t,
+                            Toast.LENGTH_LONG).show();
+                }
+            }
+        });
 
         updateStatus();
+    }
+
+    // ==================== 手机端日志 ====================
+
+    /**
+     * 日志现在<b>只在 OTA 操作台页内</b>显示（{@code activity_ota.xml} 的日志区 + Tab 切两份）。
+     *
+     * <p>2026-10-04 之前这里有个「悬浮窗权限」入口，为的是操作台挂日志悬浮窗。
+     * 实测两个问题：悬浮窗会盖在 ZEEHO App 上（而这一步本来就要来回切 App 看状态），
+     * 而且平白多要一个 {@code SYSTEM_ALERT_WINDOW} 授权页。改成页内日志区后都不需要了。</p>
+     *
+     * <p>日志本身一直照常落文件（{@code com.cfmoto/files/zeeho_hook.log}）＋ logcat tag
+     * {@code ZeehoHook}，要完整历史仍可用 adb 读文件。</p>
+     */
+    private void updateHudState() {
+        if (tvHudState != null) {
+            tvHudState.setText("日志在「自制固件 OTA 操作台」页内显示（Tab 可切「操作日志 / 车机日志」），"
+                    + "不再用悬浮窗；同时落 zeeho_hook.log，adb 可直接读");
+        }
     }
 
     private String versionName() {
@@ -91,22 +160,14 @@ public final class MainActivity extends AppCompatActivity {
 
     // ==================== edge-to-edge ====================
 
-    /** 内容画到状态栏 / 导航栏底下，栏本身透明（SukiSU 式沉浸）。 */
+    /**
+     * 沉浸式 + 修状态栏图标明暗。
+     *
+     * <p>已抽到 {@link EdgeToEdge} 供三个页面共用 —— 原来只有这里调，
+     * 另两页（操作台 / 标定台）浅色底上是白图标，等于白底白字看不见。</p>
+     */
     private void setupEdgeToEdge() {
-        android.view.Window window = getWindow();
-        WindowCompat.setDecorFitsSystemWindows(window, false);
-        window.setStatusBarColor(Color.TRANSPARENT);
-        window.setNavigationBarColor(Color.TRANSPARENT);
-        if (Build.VERSION.SDK_INT >= 29) {
-            window.setNavigationBarContrastEnforced(false);
-        }
-        // 按当前日/夜模式决定状态栏图标颜色（M3 DayNight 跟随系统）
-        int nightMode = getResources().getConfiguration().uiMode
-                & Configuration.UI_MODE_NIGHT_MASK;
-        WindowCompat.getInsetsController(window, window.getDecorView())
-                .setAppearanceLightStatusBars(nightMode != Configuration.UI_MODE_NIGHT_YES);
-        WindowCompat.getInsetsController(window, window.getDecorView())
-                .setAppearanceLightNavigationBars(nightMode != Configuration.UI_MODE_NIGHT_YES);
+        EdgeToEdge.setup(this, findViewById(android.R.id.content));
     }
 
     /** XML 里的 padding 是基准值，系统栏 insets 叠加在上面。 */
@@ -116,17 +177,17 @@ public final class MainActivity extends AppCompatActivity {
         final int baseTop = root.getPaddingTop();
         final int baseRight = root.getPaddingRight();
         final int baseBottom = root.getPaddingBottom();
-        ViewCompat.setOnApplyWindowInsetsListener(root, (v, windowInsets) -> {
-            Insets bars = windowInsets.getInsets(
-                    WindowInsetsCompat.Type.systemBars()
-                            | WindowInsetsCompat.Type.displayCutout());
-            v.setPadding(baseLeft + bars.left,
-                    baseTop + bars.top,
-                    baseRight + bars.right,
-                    baseBottom + bars.bottom);
-            return windowInsets;
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            androidx.core.graphics.Insets bars = insets.getInsets(
+                    androidx.core.view.WindowInsetsCompat.Type.systemBars()
+                            | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+            v.setPadding(baseLeft + bars.left, baseTop + bars.top,
+                    baseRight + bars.right, baseBottom + bars.bottom);
+            return insets;
         });
+        androidx.core.view.ViewCompat.requestApplyInsets(root);
     }
+
 
     private void updateStatus() {
         boolean web = swWeb.isChecked();
@@ -172,6 +233,8 @@ public final class MainActivity extends AppCompatActivity {
                     .putBoolean(Keys.KEY_GATE_ANALYSE, swG1.isChecked())
                     .putBoolean(Keys.KEY_GATE_EVENT, swG2.isChecked())
                     .putBoolean(Keys.KEY_VIEW_LAYER, swView.isChecked())
+                    .putBoolean(Keys.KEY_RIDE_FILL, swRideFill.isChecked())
+                    .putBoolean(Keys.KEY_RIDE_FULLSCAN, true)
                     .commit();
         } catch (Throwable ignored) {
             // prefs 可能被 LSPosed 重定向或只读 —— 真正的通道是下面的广播
@@ -186,6 +249,9 @@ public final class MainActivity extends AppCompatActivity {
             intent.putExtra(Keys.KEY_GATE_ANALYSE, swG1.isChecked());
             intent.putExtra(Keys.KEY_GATE_EVENT, swG2.isChecked());
             intent.putExtra(Keys.KEY_VIEW_LAYER, swView.isChecked());
+            intent.putExtra(Keys.KEY_RIDE_FILL, swRideFill.isChecked());
+            intent.putExtra(Keys.KEY_RIDE_FULLSCAN, true);
+            intent.setPackage(Keys.TARGET_PKG);   // ★ 见 Keys#TARGET_PKG：不加这行 Android 8+ 会拦掉
             sendBroadcast(intent);
         } catch (Throwable ignored) {
         }

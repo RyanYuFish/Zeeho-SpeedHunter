@@ -5,4 +5,10 @@
 
     <!-- Xposed 模块描述：LSPosed 管理器里显示（对应 Manifest 的 xposeddescription） -->
     <string name="xposed_description">解锁 ZEEHO 骑行记录完整数据。</string>
+
+    <!-- 「压弯标定」页说明。写在资源里而不是 layout 里：
+         layout 文本节点里的 \n / &#10; 在 aapt2 下不可靠（实测渲染成字面量），
+         而 string 资源里的 \n 一定会被解析成换行。 -->
+    <string name="tune_howto">拖动下面任意滑块 → 回 ZEEHO App「我的骑行 → 历史轨迹」逐月翻一遍 → 数字立刻按新参数重算。\n\n改完参数必须点「清空账本重算」：已经落盘的汇总是用旧参数算的，不会自动更新（原始轨迹不常驻，只留汇总）。</string>
+    <string name="tune_why">拿服务端有真值的日子对齐过（2026-09-03）：\n   服务端真值 134 次 / 106.5 km\n   模块算出 110 次 / 106.5 km\n   → 密度 126 vs 103 次/100km，算法本身与服务端一致。\n\n16 趟真实轨迹按里程分档的密度：\n   &lt;0.5km   787 次/100km  ← 停车时 GPS 乱飘\n   1-3km     198 次/100km\n   3-10km     90 次/100km  ← 正常\n   ≥10km      98 次/100km  ← 正常\n\n结论：虚高主要来自 1km 以下的短行程（7 月 16 趟 / 8 月 38 趟 / 9 月 27 趟），所以「最短里程」是最有效的一档。</string>
 </resources>

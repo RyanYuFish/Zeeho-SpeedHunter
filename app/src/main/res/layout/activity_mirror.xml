@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_mirror"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface">
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/page_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:clipToPadding="false"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="18dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="18dp"
+            android:paddingBottom="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageButton
+                    android:id="@+id/btn_back"
+                    style="@style/NavCircleButton"
+                    android:contentDescription="返回"
+                    android:src="@drawable/ic_arrow_back" />
+
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <ImageButton
+                    android:id="@+id/btn_clear_log"
+                    style="@style/TopIconButton"
+                    android:contentDescription="清空日志"
+                    android:src="@drawable/ic_clear" />
+            </LinearLayout>
+
+            <TextView
+                style="@style/PageTitle"
+                android:layout_marginTop="8dp"
+                android:text="仪表投屏" />
+
+            <TextView
+                android:id="@+id/tv_subtitle"
+                style="@style/ParamHelp"
+                android:layout_marginTop="2dp"
+                android:text="EasyConnect 镜像 · 模块单独入口，绕过官方 App 手动操作" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="?attr/colorSurfaceContainerLow"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="?attr/colorOutline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="投屏二维码 / 连接信息"
+                        android:textAppearance="?attr/textAppearanceTitleSmall"
+                        android:textColor="?attr/colorOnSurface" />
+
+                    <TextView
+                        style="@style/ParamHelp"
+                        android:layout_marginTop="2dp"
+                        android:text="仪表投屏界面的二维码扫出来是一条 app_download URL；粘进来点「解析」自动填上 SSID/密码。也可直接手填车机 AP。" />
+
+                    <EditText
+                        android:id="@+id/et_mirror_url"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:hint="粘贴投屏二维码 URL（含 ssid= / pwd= / action=9）"
+                        android:inputType="textUri"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_parse_url"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="解析二维码 URL" />
+
+                    <EditText
+                        android:id="@+id/et_car_ssid"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:hint="SSID（如 ZEEHO-204dfd）"
+                        android:inputType="textCapCharacters"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                    <EditText
+                        android:id="@+id/et_car_pw"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:hint="密码（开放网络留空）"
+                        android:inputType="textPassword"
+                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_save_wifi"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="保存" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_connect_car"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="连接车机热点" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tv_wifi_scan"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:fontFamily="monospace"
+                        android:text=""
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="?attr/colorSurfaceContainerLow"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="?attr/colorOutline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="开始投屏"
+                        android:textAppearance="?attr/textAppearanceTitleSmall"
+                        android:textColor="?attr/colorOnSurface" />
+
+                    <TextView
+                        style="@style/ParamHelp"
+                        android:layout_marginTop="2dp"
+                        android:text="先「连接车机热点」加入 192.168.0.x。「探测 EC 握手」会用与官方同构的 sendClientInfo 帧去敲车机 PXC 口，只测通道是否可达/回包，不推镜像（协议本体在官方 libECSDK 内，加密不可重写，详见 docs/49）。确认通道通了再点「开始投屏」—— 模块经 hook 在 com.cfmoto 内拉起投屏入口。" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_start_mirror"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="开始投屏（拉起车机镜像）" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_ec_probe"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="探测 EC 握手（不发镜像，仅测通道）" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_stop_mirror"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="断开并释放热点" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:id="@+id/tv_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="就绪 · 先连车机热点"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorOnSurface" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="运行日志"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorOnSurface" />
+
+            <TextView
+                android:id="@+id/tv_log"
+                android:layout_width="match_parent"
+                android:layout_height="280dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_log_pane"
+                android:fadeScrollbars="false"
+                android:fontFamily="monospace"
+                android:padding="12dp"
+                android:scrollbarStyle="insideOverlay"
+                android:scrollbars="vertical"
+                android:text="等待操作…"
+                android:textColor="#1A1111"
+                android:textSize="11sp" />
+
+            <TextView
+                style="@style/ParamHelp"
+                android:layout_marginTop="14dp"
+                android:text="流程：解析二维码 → 加入车机 AP（192.168.0.x）→ 「探测 EC 握手」确认车机 EC 通道可达 → 「开始投屏」交 hook 在 com.cfmoto 内拉起官方 EC 栈（SOCKS5/DNS 中继 + 镜像编解码）。投屏的私有协议（Carbit ECSDK，手机侧爱加密）无法在本模块重写；本页做到「不打开官方 App 也能一键投屏」。投屏期间不要断开 Wi-Fi。分析见 docs/49。" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
